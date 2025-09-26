@@ -15,7 +15,7 @@ print(f"Ωραία {ΟΝΟΜΑ}!")
 choice1 = input("Είσαι έτοιμος;;")
 
 if choice1 == "ΝΑΙ":
-    print("Άξιος!")
+    print("Άξιος!!")
     print(r'''                                              _
                  ___                          (_)
                _/XXX\
