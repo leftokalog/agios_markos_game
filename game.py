@@ -20,7 +20,7 @@ print("Ωραία {}!".format(ONOMA))
 
 choice1 = input("Είσαι έτοιμος; ")
 
-               _/XXX\
+
 _             /XXXXXX\_                                    __
 X\__    __   /X XXXX XX\                          _       /XX\__      ___
     \__/  \_/__       \ \                       _/X\__   /XX XXX\____/XXX\
