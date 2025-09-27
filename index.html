@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Agios Markos Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0b0f14; --fg:#e6edf3; --muted:#8b949e; --accent:#6cb6ff; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+    header { padding:16px; border-bottom:1px solid #121820; background:#0e141b; display:flex; gap:10px; align-items:center; }
+    header h1 { margin:0; font-size:16px; color:var(--accent); }
+    .wrap { max-width:900px; margin:24px auto; padding:0 16px; display:grid; gap:16px; }
+    .term { background:#0e141b; border:1px solid #1c2430; border-radius:12px; overflow:hidden; box-shadow:0 4px 30px rgba(0,0,0,.35); }
+    .term-head { padding:10px 12px; border-bottom:1px solid #1c2430; color:var(--muted); display:flex; gap:8px; align-items:center; }
+    .dot{width:10px;height:10px;border-radius:50%;display:inline-block}.red{background:#ff5f56}.yellow{background:#ffbd2e}.green{background:#27c93f}
+    #screen { padding:16px; height:460px; overflow:auto; white-space:pre-wrap; word-wrap:break-word; }
+    .controls { display:flex; gap:10px; padding:12px; border-top:1px solid #1c2430; background:#0e141b; }
+    button { border:1px solid #2a3443; background:#101822; color:var(--fg); padding:8px 12px; border-radius:8px; cursor:pointer; }
+    button:hover { background:#152030; }
+    .hint { color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Agios Markos – Terminal</h1>
+    <span class="hint">Press “Run”, then type and hit Enter whenever the game asks for input.</span>
+  </header>
+
+  <div class="wrap">
+    <div class="term" role="region" aria-label="Terminal output">
+      <div class="term-head">
+        <span class="dot red"></span><span class="dot yellow"></span><span class="dot green"></span>
+        <span style="margin-left:8px;">/bin/python</span>
+      </div>
+      <div id="screen" tabindex="0"></div>
+      <div class="controls">
+        <button id="runBtn">Run ▶</button>
+        <button id="resetBtn">Reset ⟲</button>
+        <span class="hint">Uses your <code>game.py</code> from this repo.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skulpt (Python-in-browser) -->
+  <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+
+  <script>
+    const screen = document.getElementById('screen');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let waitingForInput = null, inputBuffer = '', running = false;
+
+    function write(t){ screen.textContent += t; screen.scrollTop = screen.scrollHeight; }
+    function line(t=''){ write(t + '\n'); }
+
+    function promptUser(prompt){
+      if (prompt) write(prompt);
+      write('\n> ');
+    }
+
+    screen.addEventListener('keydown', (e)=>{
+      if (!running || !waitingForInput) return;
+      if (e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+        inputBuffer += e.key; write(e.key); e.preventDefault();
+      } else if (e.key==='Backspace'){
+        if (inputBuffer.length){ inputBuffer = inputBuffer.slice(0,-1); screen.textContent = screen.textContent.slice(0,-1); }
+        e.preventDefault();
+      } else if (e.key==='Enter'){
+        write('\n');
+        const lineVal = inputBuffer; inputBuffer = '';
+        const resolve = waitingForInput; waitingForInput = null;
+        resolve(lineVal); e.preventDefault();
+      }
+    });
+
+    function outf(t){ write(t); }
+    function inf(prompt){ promptUser(prompt || ''); screen.focus(); return new Promise(r=>waitingForInput=r); }
+    function builtinRead(x){
+      if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined){
+        throw "File not found: '" + x + "'";
+      }
+      return Sk.builtinFiles["files"][x];
+    }
+
+    async function run(){
+      if (running) return;
+      running = true; screen.textContent = ''; inputBuffer=''; waitingForInput=null;
+
+      Sk.configure({ output: outf, read: builtinRead, inputfun: inf, inputfunTakesPrompt: true, __future__: Sk.python3 });
+
+      try {
+        // Load your Python game from the same repo (root): ./game.py
+        const resp = await fetch('./game.py');
+        const code = await resp.text();
+        await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
+        line("\n\n[Program finished]");
+      } catch (err){
+        line("\nTraceback (most recent call last):");
+        line(String(err));
+      } finally {
+        running = false;
+      }
+    }
+
+    function resetTerm(){
+      if (running) line("\n[Session reset]");
+      running=false; inputBuffer=''; waitingForInput=null; screen.textContent=''; screen.focus();
+    }
+
+    runBtn.addEventListener('click', run);
+    resetBtn.addEventListener('click', resetTerm);
+    screen.setAttribute('tabindex','0');
+    screen.addEventListener('click', ()=>screen.focus());
+  </script>
+</body>
+</html>
