@@ -92,7 +92,7 @@
 
       try {
         // Load your Python game from the same repo (root): ./game.py
-        const resp = await fetch('./game.py');
+        const resp = await fetch('./game_clean.py');
         const code = await resp.text();
         await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
         line("\n\n[Program finished]");
