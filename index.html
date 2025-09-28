@@ -36,7 +36,7 @@
       <div class="controls">
         <button id="runBtn">Run ▶</button>
         <button id="resetBtn">Reset ⟲</button>
-        <span class="hint">Uses your <code>game.py</code> from this repo.</span>
+        <span class="hint">Python runs in the browser via Skulpt.</span>
       </div>
     </div>
   </div>
@@ -45,85 +45,110 @@
   <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
 
-<script>
-  const screen = document.getElementById('screen');
-  const runBtn = document.getElementById('runBtn');
-  const resetBtn = document.getElementById('resetBtn');
+  <!-- Your Python game (you can replace this whole block with your full game; avoid f-strings) -->
+  <script id="pycode" type="text/plain">
+print(r'''
+          /\
+         /**\
+        /****\   /\
+       /      \ /**\
+      /  /\    /    \        /\    /\  /\      /\            /\/\/\  /\
+     /  /  \  /      \      /  \/\/  \/  \  /\/  \/\  /\  /\/ / /  \/  \
+    /  /    \/ /\     \    /    \ \  /    \/ /   /  \/  \/  \  /    \   \
+   /  /      \/  \/\   \  /      \    /   /    \
+__/__/_______/___/__\___\__________________________________________________
+''')
 
-  let waitingForInput = null, inputBuffer = '', running = false;
+print("Καλώς ήρθες στα βουνά της Πεϊκοβας!")
+print("Μόνο οι πραγματικοί Αγιομαρκίτες μπορούν να επιβιώσουν!")
+print("Στις ερωτήσεις κλειστού τύπου απαντάς με ναι/όχι.")
 
-  function write(t){ screen.textContent += t; screen.scrollTop = screen.scrollHeight; }
-  function line(t=''){ write(t + '\n'); }
+name = input("Πώς σε λένε; ")
+print("Ωραία {}!".format(name))
 
-  function promptUser(prompt){
-    if (prompt) write(prompt);
-    write('\n> ');
-  }
+ready = input("Είσαι έτοιμος; (ναι/όχι) ")
+print("Είπες: {}".format(ready))
+  </script>
 
-  // capture typing for input()
-  screen.addEventListener('keydown', (e)=>{
-    if (!running || !waitingForInput) return;
-    if (e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
-      inputBuffer += e.key; write(e.key); e.preventDefault();
-    } else if (e.key==='Backspace'){
-      if (inputBuffer.length){ inputBuffer = inputBuffer.slice(0,-1); screen.textContent = screen.textContent.slice(0,-1); }
-      e.preventDefault();
-    } else if (e.key==='Enter'){
-      write('\n');
-      const lineVal = inputBuffer; inputBuffer = '';
-      const resolve = waitingForInput; waitingForInput = null;
-      resolve(lineVal); e.preventDefault();
+  <!-- JS that reads the Python from #pycode (no fetch) -->
+  <script>
+    const screen = document.getElementById('screen');
+    const runBtn = document.getElementById('runBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    let waitingForInput = null, inputBuffer = '', running = false;
+
+    function write(t){ screen.textContent += t; screen.scrollTop = screen.scrollHeight; }
+    function line(t=''){ write(t + '\n'); }
+
+    function promptUser(prompt){
+      if (prompt) write(prompt);
+      write('\n> ');
     }
-  });
 
-  function outf(t){ write(t); }
-  function inf(prompt){ promptUser(prompt || ''); screen.focus(); return new Promise(r=>waitingForInput=r); }
-  function builtinRead(x){
-    if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined){
-      throw "File not found: '" + x + "'";
-    }
-    return Sk.builtinFiles["files"][x];
-  }
-
-  async function run(){
-    if (running) return;
-    running = true;
-    screen.textContent = '';
-    inputBuffer = '';
-    waitingForInput = null;
-
-    Sk.configure({
-      output: outf,
-      read: builtinRead,
-      inputfun: inf,
-      inputfunTakesPrompt: true,
-      __future__: Sk.python3
+    // capture typing for input()
+    screen.addEventListener('keydown', (e)=>{
+      if (!running || !waitingForInput) return;
+      if (e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+        inputBuffer += e.key; write(e.key); e.preventDefault();
+      } else if (e.key==='Backspace'){
+        if (inputBuffer.length){ inputBuffer = inputBuffer.slice(0,-1); screen.textContent = screen.textContent.slice(0,-1); }
+        e.preventDefault();
+      } else if (e.key==='Enter'){
+        write('\n');
+        const lineVal = inputBuffer; inputBuffer = '';
+        const resolve = waitingForInput; waitingForInput = null;
+        resolve(lineVal); e.preventDefault();
+      }
     });
 
-    // 👇 READ PYTHON FROM THE <script id="pycode"> BLOCK
-    const code = document.getElementById('pycode').textContent;
-
-    try {
-      await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
-      line("\n\n[Program finished]");
-    } catch (err){
-      line("\nTraceback (most recent call last):");
-      line(String(err));
-    } finally {
-      running = false;
+    function outf(t){ write(t); }
+    function inf(prompt){ promptUser(prompt || ''); screen.focus(); return new Promise(r=>waitingForInput=r); }
+    function builtinRead(x){
+      if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined){
+        throw "File not found: '" + x + "'";
+      }
+      return Sk.builtinFiles["files"][x];
     }
-  }
 
-  function resetTerm(){
-    if (running) line("\n[Session reset]");
-    running=false; inputBuffer=''; waitingForInput=null; screen.textContent=''; screen.focus();
-  }
+    async function run(){
+      if (running) return;
+      running = true;
+      screen.textContent = '';
+      inputBuffer = '';
+      waitingForInput = null;
 
-  runBtn.addEventListener('click', run);
-  resetBtn.addEventListener('click', resetTerm);
-  screen.setAttribute('tabindex','0');
-  screen.addEventListener('click', ()=>screen.focus());
-</script>
+      Sk.configure({
+        output: outf,
+        read: builtinRead,
+        inputfun: inf,
+        inputfunTakesPrompt: true,
+        __future__: Sk.python3
+      });
 
+      // Read Python from the embedded block
+      const code = document.getElementById('pycode').textContent;
+
+      try {
+        await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
+        line("\n\n[Program finished]");
+      } catch (err){
+        line("\nTraceback (most recent call last):");
+        line(String(err));
+      } finally {
+        running = false;
+      }
+    }
+
+    function resetTerm(){
+      if (running) line("\n[Session reset]");
+      running=false; inputBuffer=''; waitingForInput=null; screen.textContent=''; screen.focus();
+    }
+
+    runBtn.addEventListener('click', run);
+    resetBtn.addEventListener('click', resetTerm);
+    screen.setAttribute('tabindex','0');
+    screen.addEventListener('click', ()=>screen.focus());
+  </script>
 </body>
 </html>
