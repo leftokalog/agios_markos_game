@@ -45,74 +45,85 @@
   <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
 
-  <script>
-    const screen = document.getElementById('screen');
-    const runBtn = document.getElementById('runBtn');
-    const resetBtn = document.getElementById('resetBtn');
+<script>
+  const screen = document.getElementById('screen');
+  const runBtn = document.getElementById('runBtn');
+  const resetBtn = document.getElementById('resetBtn');
 
-    let waitingForInput = null, inputBuffer = '', running = false;
+  let waitingForInput = null, inputBuffer = '', running = false;
 
-    function write(t){ screen.textContent += t; screen.scrollTop = screen.scrollHeight; }
-    function line(t=''){ write(t + '\n'); }
+  function write(t){ screen.textContent += t; screen.scrollTop = screen.scrollHeight; }
+  function line(t=''){ write(t + '\n'); }
 
-    function promptUser(prompt){
-      if (prompt) write(prompt);
-      write('\n> ');
+  function promptUser(prompt){
+    if (prompt) write(prompt);
+    write('\n> ');
+  }
+
+  // capture typing for input()
+  screen.addEventListener('keydown', (e)=>{
+    if (!running || !waitingForInput) return;
+    if (e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
+      inputBuffer += e.key; write(e.key); e.preventDefault();
+    } else if (e.key==='Backspace'){
+      if (inputBuffer.length){ inputBuffer = inputBuffer.slice(0,-1); screen.textContent = screen.textContent.slice(0,-1); }
+      e.preventDefault();
+    } else if (e.key==='Enter'){
+      write('\n');
+      const lineVal = inputBuffer; inputBuffer = '';
+      const resolve = waitingForInput; waitingForInput = null;
+      resolve(lineVal); e.preventDefault();
     }
+  });
 
-    screen.addEventListener('keydown', (e)=>{
-      if (!running || !waitingForInput) return;
-      if (e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey){
-        inputBuffer += e.key; write(e.key); e.preventDefault();
-      } else if (e.key==='Backspace'){
-        if (inputBuffer.length){ inputBuffer = inputBuffer.slice(0,-1); screen.textContent = screen.textContent.slice(0,-1); }
-        e.preventDefault();
-      } else if (e.key==='Enter'){
-        write('\n');
-        const lineVal = inputBuffer; inputBuffer = '';
-        const resolve = waitingForInput; waitingForInput = null;
-        resolve(lineVal); e.preventDefault();
-      }
+  function outf(t){ write(t); }
+  function inf(prompt){ promptUser(prompt || ''); screen.focus(); return new Promise(r=>waitingForInput=r); }
+  function builtinRead(x){
+    if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined){
+      throw "File not found: '" + x + "'";
+    }
+    return Sk.builtinFiles["files"][x];
+  }
+
+  async function run(){
+    if (running) return;
+    running = true;
+    screen.textContent = '';
+    inputBuffer = '';
+    waitingForInput = null;
+
+    Sk.configure({
+      output: outf,
+      read: builtinRead,
+      inputfun: inf,
+      inputfunTakesPrompt: true,
+      __future__: Sk.python3
     });
 
-    function outf(t){ write(t); }
-    function inf(prompt){ promptUser(prompt || ''); screen.focus(); return new Promise(r=>waitingForInput=r); }
-    function builtinRead(x){
-      if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined){
-        throw "File not found: '" + x + "'";
-      }
-      return Sk.builtinFiles["files"][x];
+    // 👇 READ PYTHON FROM THE <script id="pycode"> BLOCK
+    const code = document.getElementById('pycode').textContent;
+
+    try {
+      await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
+      line("\n\n[Program finished]");
+    } catch (err){
+      line("\nTraceback (most recent call last):");
+      line(String(err));
+    } finally {
+      running = false;
     }
+  }
 
-    async function run(){
-      if (running) return;
-      running = true; screen.textContent = ''; inputBuffer=''; waitingForInput=null;
+  function resetTerm(){
+    if (running) line("\n[Session reset]");
+    running=false; inputBuffer=''; waitingForInput=null; screen.textContent=''; screen.focus();
+  }
 
-      Sk.configure({ output: outf, read: builtinRead, inputfun: inf, inputfunTakesPrompt: true, __future__: Sk.python3 });
+  runBtn.addEventListener('click', run);
+  resetBtn.addEventListener('click', resetTerm);
+  screen.setAttribute('tabindex','0');
+  screen.addEventListener('click', ()=>screen.focus());
+</script>
 
-      try {
-        // Load your Python game from the same repo (root): ./game.py
-        const resp = await fetch('./game_clean.py');
-        const code = await resp.text();
-        await Sk.misceval.asyncToPromise(() => Sk.importMainWithBody("<stdin>", false, code, true));
-        line("\n\n[Program finished]");
-      } catch (err){
-        line("\nTraceback (most recent call last):");
-        line(String(err));
-      } finally {
-        running = false;
-      }
-    }
-
-    function resetTerm(){
-      if (running) line("\n[Session reset]");
-      running=false; inputBuffer=''; waitingForInput=null; screen.textContent=''; screen.focus();
-    }
-
-    runBtn.addEventListener('click', run);
-    resetBtn.addEventListener('click', resetTerm);
-    screen.setAttribute('tabindex','0');
-    screen.addEventListener('click', ()=>screen.focus());
-  </script>
 </body>
 </html>
